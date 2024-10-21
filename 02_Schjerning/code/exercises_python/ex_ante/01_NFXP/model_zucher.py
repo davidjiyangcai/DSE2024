@@ -59,12 +59,14 @@ class zurcher():
         '''Evaluate Bellman operator, choice probability and Frechet derivative - written in integrated value form'''
 
         # Value of options:
+        # is already integrating over the state variables
         value_keep = -self.cost + self.beta * self.P1 @ ev0 # nx1 matrix
         value_replace = -self.RC - self.cost[0] + self.beta * self.P2 @ ev0   # 1x1
 
         # recenter Bellman by subtracting max(VK, VR)
         maxV = np.maximum(value_keep, value_replace) 
-        logsum = (maxV + np.log(np.exp(value_keep-maxV)  +  np.exp(value_replace-maxV)))  # Compute logsum to handle expectation over unobserved states
+        # Compute logsum to handle expectation over unobserved states
+        logsum = (maxV + np.log(np.exp(value_keep-maxV)  +  np.exp(value_replace-maxV)))  
         ev1 = logsum # Bellman operator as integrated value
 
         if output == 1:

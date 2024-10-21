@@ -97,7 +97,7 @@ def solve_SA(par, vectorized = False, **kwargs):
 
 def bellman(V_next, par, taste_shocks = 'None', stochastic_transition = False):
     """
-    The function `bellman` evaluates the integreated value bellmann-operator in a dynamic programming problem.
+    The function `bellman` evaluates the integrated value bellmann-operator in a dynamic programming problem.
     ie. For a given guess of the value function for the next period, it calculates a new guess of the value and also the choice probabilities.
     problem using the Bellman equation, considering different types of taste shocks and transition
     probabilities.
@@ -123,30 +123,36 @@ def bellman(V_next, par, taste_shocks = 'None', stochastic_transition = False):
             
         # Calculate expected future value across states for each choice
         if stochastic_transition == False:
-            pass # Fill in using EV_deterministic
-        else: #Exercise 2
-            pass # Fill in using EV_stochastic
+            EV_keep = EV_deterministic(0, x, V_next, par)
+            EV_replace = EV_deterministic(1, x, V_next, par)
+        else: 
+            EV_keep = EV_stochastic(0, x, V_next, par)
+            EV_replace = EV_stochastic(1, x, V_next, par)
         
         # Calculate value of each choice
-        value_keep = None # Fill in
-        value_replace = None # Fill in
+        value_keep = util(0, x, par) + par.beta * EV_keep
+        value_replace = util(1, x, par) + par.beta * EV_replace
         
         # Find the maximum value across choices
-        pass # Fill in
+        maxV = np.amax([value_keep, value_replace]) # Fill in
         
         ### Update value and choice
         
         # Exercise 1
         if taste_shocks == 'None':
-            pass # Fill in
+            V_now[x] = maxV
+            pk[x] = (value_keep > value_replace)
         
         # Exercise 3
         elif taste_shocks == 'Extreme Value':
-            pass # Fill in
+            logsum = (maxV + np.log(np.exp((value_keep-maxV))  +  np.exp((value_replace-maxV))))
+            V_now[x] = logsum
+            pk[x] = 1/(1+np.exp((value_replace-value_keep))) 
         
         # Exercise 4
         elif taste_shocks == 'Monte Carlo Extreme Value':
-            values = np.column_stack([value_keep + par.eps_keep_gumb, value_replace + par.eps_replace_gumb])
+            values = np.column_stack([value_keep + par.eps_keep_gumb,
+                                      value_replace + par.eps_replace_gumb])
             choices = np.argmax(values, axis = 1)
 
             V_now[x] = values[np.arange(par.num_eps), choices].mean()
@@ -154,7 +160,12 @@ def bellman(V_next, par, taste_shocks = 'None', stochastic_transition = False):
         
         # Exercise 4
         elif taste_shocks == 'Normal':
-            pass # Fill in
+            values = np.column_stack([value_keep + par.eps_keep_norm,
+                                      value_replace + par.eps_replace_norm])
+            choices = np.argmax(values, axis = 1)
+
+            V_now[x] = values[np.arange(par.num_eps), choices].mean()
+            pk[x] = 1 - choices.mean()
             
     return V_now, pk
 
@@ -206,9 +217,9 @@ def EV_deterministic(d, x, V_next, par):
     Returns:
       the value of next period
     """
-    x_next = None # fill in
+    x_next = x*(1-d) + 1
     x_next = np.fmin(x_next, par.n-1) # Ensure that x_next is within grid
-    return None # Fill in
+    return V_next[x_next] # Fill in
 
 def EV_stochastic(d, x, V_next, par):
     """
@@ -228,9 +239,13 @@ def EV_stochastic(d, x, V_next, par):
     the decision variable (d), and the transition probabilities (par.transition) and probabilities
     (par.p).
     """
-    pass # Fill in
+    EV = 0
+    for p, m in zip(par.p, par.transition):
+        x_next = x * (1-d) + m
+        x_next = np.fmin(x_next, par.n - 1)
+        EV += p*V_next[x_next]
     
-    return None # Fill in
+    return EV # Fill in
 
 def bellman_vector(V_next, par):
     """
@@ -248,9 +263,19 @@ def bellman_vector(V_next, par):
     current state (pk).
     """
     
-    pass # Fill in
+    # Calculate value of each choice
+    value_keep = -par.cost_grid + par.beta * par.P1 @ V_next # nx1 matrix
+    value_replace = -par.RC - par.cost_grid[0] + par.beta * par.P2 @ V_next   # 1x1
+    # Find the maximum value
+    maxV = np.amax([value_keep, value_replace])
+
+    # Update value and choice
+    logsum = (maxV + np.log(np.exp(value_keep-maxV)  +  np.exp(value_replace-maxV)))
+    V_now = logsum
+    pk = 1/(1+np.exp(value_replace-value_keep)) 
+
             
-    return None # Fill in
+    return V_now, pk # Fill in
 
 def create_transition_matrix(d, par):
     """
